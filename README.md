@@ -3,6 +3,8 @@
 <h1>Использованные технологии</h1>
 <ul>
 	<li>
-		test
+		<b>python3.8+</b>
+		<b>mysql 8.0.34+</b>
+		Библиотеки для python3: <b>aiogram, logging, aiomysql, asyncio, configparser, datetime, re, pymysql, getpass, os</b>
 	</li>
 </ul>
