@@ -4,7 +4,11 @@
 <ul>
 	<li>
 		<b>python3.8+</b>
+	</li>		
+	<li>
 		<b>mysql 8.0.34+</b>
+	</li>
+	<li>		
 		Библиотеки для python3: <b>aiogram, logging, aiomysql, asyncio, configparser, datetime, re, pymysql, getpass, os</b>
 	</li>
 </ul>
