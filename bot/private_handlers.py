@@ -377,7 +377,7 @@ async def set_group_settings_handler(call: types.CallbackQuery, bot: Bot, state:
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
-    get_data_sql = f"SELECT use_notify_for_ban_user, use_notify_for_unban_user, use_banwords_filter FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+    get_data_sql = f"SELECT use_notify_for_ban_user, use_notify_for_unban_user, use_banwords_filter FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id WHERE ugs.group_id = uga.group_id;"
     await cursor.execute(get_data_sql)
     r = await cursor.fetchone()
     if r is None:
@@ -388,14 +388,18 @@ async def set_group_settings_handler(call: types.CallbackQuery, bot: Bot, state:
 
     d = {True: 'выключено', False: 'включено'}
 
+    get_current_group_id_sql = f"SELECT ugs.group_id FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON ugs.group_id = uga.group_id WHERE ugs.owner_id = {call.from_user.id};"
+    await cursor.execute(get_current_group_id_sql)
+    current_group_id = (await cursor.fetchone())[0]
+
     if call.data == 'set notify_for_ban_user':
-        set_notify_for_ban_user_sql = f"UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET use_notify_for_ban_user = {not bool(use_notify_for_ban_user)} WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+        set_notify_for_ban_user_sql = f"UPDATE users_groups_settings SET use_notify_for_ban_user = {not bool(use_notify_for_ban_user)} WHERE group_id = {current_group_id};"
         await cursor.execute(set_notify_for_ban_user_sql)
         await mydb.commit()
 
         await bot.send_message(call.from_user.id, f'{texts.SET_NOTIFY_FOR_BAN_SUCCESSFUL} {d[use_notify_for_ban_user]}!')
     elif call.data == 'set notify_for_unban_user':
-        set_notify_for_unban_user_sql = f"UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET use_notify_for_unban_user = {not bool(use_notify_for_unban_user)} WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+        set_notify_for_unban_user_sql = f"UPDATE users_groups_settings SET use_notify_for_unban_user = {not bool(use_notify_for_unban_user)} WHERE group_id = {current_group_id};"
         await cursor.execute(set_notify_for_unban_user_sql)
         await mydb.commit()
 
@@ -403,7 +407,7 @@ async def set_group_settings_handler(call: types.CallbackQuery, bot: Bot, state:
     elif call.data == 'set banwords_filter':
         d = {True: 'выключен', False: 'включен'}
 
-        set_banwords_filter_sql = f"UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET use_banwords_filter = {not bool(use_banwords_filter)} WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+        set_banwords_filter_sql = f"UPDATE users_groups_settings SET use_banwords_filter = {not bool(use_banwords_filter)} WHERE group_id = {current_group_id};"
         await cursor.execute(set_banwords_filter_sql)
         await mydb.commit()
 
@@ -412,7 +416,7 @@ async def set_group_settings_handler(call: types.CallbackQuery, bot: Bot, state:
         if not use_banwords_filter:
             await bot.send_message(call.from_user.id, texts.CHOOSE_A_BANWORDS_LIST_ACTION, reply_markup=await keyboards.choose_a_banwords_list_action_keyboard())
         else:
-            off_banwords_filter = f"UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET use_banwords_filter = {not bool(use_banwords_filter)}, banwords_list = '[]' WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+            off_banwords_filter = f"UPDATE users_groups_settings SET use_banwords_filter = {not bool(use_banwords_filter)}, banwords_list = '[]' WHERE group_id = {current_group_id};"
             await cursor.execute(off_banwords_filter)
         await mydb.commit()
 
@@ -441,7 +445,11 @@ async def replace_banwords_list_handler(message: types.Message, state: FSMContex
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
-    add_banwords_sql = f"""UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET banwords_list = "{banwords}" WHERE owner_id = {message.from_user.id} AND ugs.group_id = uga.group_id;"""
+    get_current_group_id_sql = f"SELECT ugs.group_id FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON ugs.group_id = uga.group_id WHERE ugs.owner_id = {message.from_user.id};"
+    await cursor.execute(get_current_group_id_sql)
+    current_group_id = (await cursor.fetchone())[0]
+
+    add_banwords_sql = f"""UPDATE users_groups_settings SET banwords_list = "{banwords}"  WHERE group_id = {current_group_id};"""
     await cursor.execute(add_banwords_sql)
 
     await mydb.commit()
@@ -462,7 +470,11 @@ async def add_to_banwords_list_handler(message: types.Message, state: FSMContext
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
-    get_old_banwords_list_sql = f"SELECT banwords_list FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id WHERE owner_id = {message.from_user.id} AND ugs.group_id = uga.group_id;"
+    get_current_group_id_sql = f"SELECT ugs.group_id FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON ugs.group_id = uga.group_id WHERE ugs.owner_id = {message.from_user.id};"
+    await cursor.execute(get_current_group_id_sql)
+    current_group_id = (await cursor.fetchone())[0]
+
+    get_old_banwords_list_sql = f"SELECT banwords_list FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id WHERE ugs.group_id = uga.group_id;"
 
     await cursor.execute(get_old_banwords_list_sql)
     r = await cursor.fetchone()
@@ -475,7 +487,7 @@ async def add_to_banwords_list_handler(message: types.Message, state: FSMContext
     except:
         return
 
-    add_banwords_sql = f"""UPDATE users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id SET banwords_list = "{banwords}" WHERE owner_id = {message.from_user.id} AND ugs.group_id = uga.group_id;"""
+    add_banwords_sql = f"""UPDATE users_groups_settings SET banwords_list = "{banwords}" WHERE group_id = {current_group_id};"""
     await cursor.execute(add_banwords_sql)
 
     await mydb.commit()
@@ -490,7 +502,11 @@ async def show_banwords_list_handler(call: types.CallbackQuery, state: FSMContex
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
-    get_banwords_list_sql = f"SELECT banwords_list FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON uga.user_id = ugs.owner_id WHERE owner_id = {call.from_user.id} AND ugs.group_id = uga.group_id;"
+    get_current_group_id_sql = f"SELECT ugs.group_id FROM users_groups_settings ugs INNER JOIN users_groups_actions uga ON ugs.group_id = uga.group_id WHERE ugs.owner_id = {call.from_user.id};"
+    await cursor.execute(get_current_group_id_sql)
+    current_group_id = (await cursor.fetchone())[0]
+
+    get_banwords_list_sql = f"SELECT banwords_list FROM users_groups_settings WHERE group_id = {current_group_id};"
     await cursor.execute(get_banwords_list_sql)
     r = await cursor.fetchone()
     if r is None:

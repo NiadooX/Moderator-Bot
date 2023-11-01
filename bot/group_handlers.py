@@ -26,7 +26,7 @@ router2.chat_member.middleware(OnlyGroupActionsMiddlware())
 router2.message.middleware(OnlyGroupActionsMiddlware())
 router2.message.middleware(CheckActionNormal())
 router2.message.middleware(FilterTextMiddleware())
-router2.message.middleware(ThrottlingMiddleware(timeout=0))
+router2.message.middleware(ThrottlingMiddleware(timeout=0.5))
 router2.callback_query.middleware(ThrottlingMiddleware(timeout=3))
 
 
@@ -62,8 +62,11 @@ async def bot_group_start_handler(event: types.ChatMemberUpdated, bot: Bot):
     group_title = event.chat.title
     group_type = event.chat.type
     date_now = datetime.now().strftime('%d.%m.%Y %X')
+    my_id = (await bot.get_me()).id
     if administrators:
         for admin in administrators:
+            if admin == my_id:
+                continue
             check_group_sql = f"SELECT * FROM bot_groups WHERE id = {event.chat.id} AND owner_id = {admin}"
             await cursor.execute(check_group_sql)
             if await cursor.fetchone():
@@ -621,7 +624,7 @@ async def pick_tic_tac_toe_handler(call: types.CallbackQuery, bot: Bot):
                 await bot.edit_message_text(text=re.sub(pattern=r'Ходит @\w+\b', repl=f'Ходит {next_picker_username}', string=call.message.text), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=await keyboards.tic_tac_toe_game_keyboard(new_map_positions))
 
 
-@router2.message(Command('tic_tic_toe_wins', 'game1_wins'), flags=CHECK_BOT_RIGHT_AND_USE_THROTTLE)
+@router2.message(Command('tic_tac_toe_wins', 'game1_wins'), flags=CHECK_BOT_RIGHT_AND_USE_THROTTLE)
 async def user_wins_handler(message: types.Message):
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
@@ -637,7 +640,7 @@ async def user_wins_handler(message: types.Message):
 
 
 @router2.message(Command('tic_tac_toe_leaderboard', 'game1_leaderboard'), flags=CHECK_BOT_RIGHT_AND_USE_THROTTLE)
-async def game1_leaderboard(message: types.Message):
+async def tic_tac_toe_leaderboard(message: types.Message):
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
