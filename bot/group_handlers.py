@@ -4,7 +4,7 @@ from aiogram import types
 from aiogram.filters.command import Command
 from aiogram.filters.chat_member_updated import ChatMemberUpdatedFilter, IS_NOT_MEMBER, IS_MEMBER, KICKED, IS_ADMIN, LEFT, RESTRICTED, MEMBER
 from middlewares import ThrottlingMiddleware, CheckBotRights, OnlyGroupActionsMiddlware, CheckActionNormal, FilterTextMiddleware
-from misc import connect_to_db, time_to_cancel_user_ban, time_to_cancel_user_unban, async_range, CheckUserAction, CheckUserRights, concat_dicts, CheckCallbackNormal, time_to_ready_in_game1, CheckGame1, tic_tac_toe_fillers, async_list
+from misc import connect_to_db, time_to_cancel_user_ban, time_to_cancel_user_unban, async_range, CheckUserAction, CheckUserRights, concat_dicts, CheckCallbackNormal, time_to_ready_in_game1, CheckGame1, tic_tac_toe_fillers, async_list, get_admins
 import texts
 from datetime import datetime, timedelta
 import asyncio
@@ -92,6 +92,11 @@ async def bot_group_start_handler(event: types.ChatMemberUpdated, bot: Bot):
 
 @router2.message(CheckUserRights(), Command('ban'), F.reply_to_message, F.func(lambda x: not x.from_user.is_bot), flags=CHECK_BOT_RIGHT_AND_CHECK_ACTION_NORMAL_AND_USE_THROTTLE)
 async def ban_user_handler(message: types.Message, bot: Bot, command: aiogram.filters.CommandObject):
+    administrators = (await get_admins(message.chat.id, chat_administrators_cache, bot))[0]
+    if message.reply_to_message.from_user.id in administrators:
+        await message.reply(texts.ADMIN_ACTION_ERROR_GROUP)
+        return
+
     mydb = await connect_to_db()
     cursor = await mydb.cursor()
 
@@ -125,7 +130,6 @@ async def ban_user_handler(message: types.Message, bot: Bot, command: aiogram.fi
         await bot.edit_message_text(text=f'{to_user_bot_check2[message.reply_to_message.from_user.is_bot]} "{message.reply_to_message.from_user.full_name}" {texts.USER_BAN_SUCCESSFUL}', chat_id=message.chat.id, message_id=question_message.message_id)
 
         await mydb.commit()
-
 
     get_use_notify_for_ban_user_sql = f"SELECT use_notify_for_ban_user FROM users_groups_settings WHERE owner_id = {message.from_user.id} AND group_id = {message.chat.id};"
     await cursor.execute(get_use_notify_for_ban_user_sql)
@@ -215,6 +219,11 @@ async def access_ban_handler(call: types.CallbackQuery, bot: Bot):
         await bot.edit_message_text(text=texts.USER_BAN_FAILED, chat_id=group_id, message_id=r[4])
 
 
+@router2.message(Command('ban'), flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
+async def ban_decline_handler(message: types.Message):
+    await message.answer(texts.REPLY_TO_MESSAGE_ERROR)
+
+
 @router2.callback_query(CheckUserAction('ban'), F.data == 'unsure_to_ban', CheckCallbackNormal(), flags=CHECK_BOT_RIGHT)
 async def cancel_ban_handler(call: types.CallbackQuery, bot: Bot):
     mydb = await connect_to_db()
@@ -245,6 +254,11 @@ async def ban_user_failed_handler(message: types.Message):
 
 @router2.message(CheckUserRights(), Command('unban'), F.reply_to_message, F.func(lambda x: not x.from_user.is_bot), flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
 async def unban_user_handler(message: types.Message, bot: Bot):
+    administrators = (await get_admins(message.chat.id, chat_administrators_cache, bot))[0]
+    if message.reply_to_message.from_user.id in administrators:
+        await message.reply(texts.ADMIN_ACTION_ERROR_GROUP)
+        return
+
     question_message = await message.reply(texts.QUESTION_TO_ACTION_SENDED_TO_U)
 
     mydb = await connect_to_db()
@@ -315,6 +329,11 @@ async def unban_user_handler(message: types.Message, bot: Bot):
         await __unban_user()
 
 
+@router2.message(Command('unban'), flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
+async def unban_decline_handler(message: types.Message):
+    await message.answer(texts.REPLY_TO_MESSAGE_ERROR)
+
+
 @router2.callback_query(CheckUserAction('unban'), F.data == 'sure_to_unban', CheckCallbackNormal(), flags=CHECK_BOT_RIGHT)
 async def access_unban_handler(call: types.CallbackQuery, bot: Bot):
     mydb = await connect_to_db()
@@ -373,6 +392,11 @@ async def unban_user_failed_handler(message: types.Message):
 
 @router2.message(Command('mute'), F.reply_to_message, flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
 async def mute_temp_handler(message: types.Message, bot: Bot):
+    administrators = (await get_admins(message.chat.id, chat_administrators_cache, bot))[0]
+    if message.reply_to_message.from_user.id in administrators:
+        await message.reply(texts.ADMIN_ACTION_ERROR_GROUP)
+        return
+
     if message.chat.type == 'supergroup':
         new_user_rights = ChatPermissions(can_send_messages=False, can_invite_users=False)
         await bot.restrict_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id, permissions=new_user_rights)
@@ -385,8 +409,18 @@ async def mute_temp_handler(message: types.Message, bot: Bot):
     await message.answer(f'{to_user_bot_check[message.reply_to_message.from_user.is_bot]} {message.reply_to_message.from_user.full_name} {texts.USER_WAS_MUTED_TEMP1} {from_user_bot_check[message.from_user.is_bot]} {message.from_user.full_name}\n{texts.USER_WAS_MUTED_TEMP2}')
 
 
+@router2.message(Command('mute'), flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
+async def mute_decline_handler(message: types.Message):
+    await message.answer(texts.REPLY_TO_MESSAGE_ERROR)
+
+
 @router2.message(Command('unmute'), F.reply_to_message, flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
 async def umnute_temp_handler(message: types.Message, bot: Bot):
+    administrators = (await get_admins(message.chat.id, chat_administrators_cache, bot))[0]
+    if message.reply_to_message.from_user.id in administrators:
+        await message.reply(texts.ADMIN_ACTION_ERROR_GROUP)
+        return
+
     if message.chat.type == 'supergroup':
         new_user_rights = ChatPermissions(can_send_messages=True, can_invite_users=True)
         await bot.restrict_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id, permissions=new_user_rights)
@@ -397,6 +431,11 @@ async def umnute_temp_handler(message: types.Message, bot: Bot):
     to_user_bot_check = {False: 'Пользователь', True: 'Бот'}
     from_user_bot_check = {False: 'пользователем', True: 'ботом'}
     await message.answer(f'{to_user_bot_check[message.reply_to_message.from_user.is_bot]} {message.reply_to_message.from_user.full_name} {texts.USER_WAS_UNMUTED} {from_user_bot_check[message.from_user.is_bot]} {message.from_user.full_name}')
+
+
+@router2.message(Command('unmute'), flags=CHECK_BOT_RIGHT_AND_ACTION_NORMAL)
+async def unmute_decline_handler(message: types.Message):
+    await message.answer(texts.REPLY_TO_MESSAGE_ERROR)
 
 
 @router2.message(Command('random'), flags=CHECK_BOT_RIGHT_AND_USE_THROTTLE)

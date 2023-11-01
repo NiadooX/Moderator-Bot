@@ -116,3 +116,15 @@ class CheckGame1(BaseFilter):
         return r is None
 
 
+async def get_admins(chat_id: int, chat_administrators_cache: dict, bot: aiogram.Bot):
+    if chat_administrators_cache.get(chat_id) is None or chat_administrators_cache[chat_id][1] < datetime.now():
+        tmp = await bot.get_chat_administrators(chat_id)
+        administrators = [i.user.id for i in tmp]
+        administrators_without_bots = [i.user.id for i in tmp if not i.user.is_bot]
+        chat_administrators_cache[chat_id] = (administrators, datetime.now() + timedelta(seconds=10), administrators_without_bots)
+    else:
+        administrators = chat_administrators_cache[chat_id][0]
+        administrators_without_bots = chat_administrators_cache[chat_id][2]
+
+    return administrators, administrators_without_bots
+
